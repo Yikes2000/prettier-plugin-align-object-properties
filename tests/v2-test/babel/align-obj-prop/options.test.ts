@@ -1,0 +1,1 @@
+../../../v3-test/babel/align-obj-prop/options.test.ts

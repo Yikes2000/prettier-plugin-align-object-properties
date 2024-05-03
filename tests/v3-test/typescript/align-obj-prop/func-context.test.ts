@@ -1,0 +1,1 @@
+../../babel/align-obj-prop/func-context.test.ts

@@ -1,0 +1,1 @@
+../../babel/align-obj-prop/back-ticks.test.ts

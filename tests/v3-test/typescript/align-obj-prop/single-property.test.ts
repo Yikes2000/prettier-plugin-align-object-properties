@@ -1,0 +1,1 @@
+../../babel/align-obj-prop/single-property.test.ts

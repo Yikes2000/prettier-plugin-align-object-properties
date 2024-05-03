@@ -1,0 +1,1 @@
+../../../v3-test/typescript/align-obj-prop/func-context.test.ts
