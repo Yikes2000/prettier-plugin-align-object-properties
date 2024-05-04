@@ -146,6 +146,51 @@ function a(
 }
 `,
     },
+    {
+        name: `${name} (4) function return`,
+        input: `\
+//---------------------------------------- (4)
+function a() {
+    statement;
+    statement;
+
+    function e() {
+        statement;
+
+        return {
+            h: "home", // force multi-line
+            ee: true,
+        };
+    }
+
+    return {
+        b: 1, // force multi-line
+        cc: "copy",
+    };
+}
+`,
+        output: `\
+//---------------------------------------- (4)
+function a() {
+    statement;
+    statement;
+
+    function e() {
+        statement;
+
+        return {
+            h  : "home", // force multi-line
+            ee : true,
+        };
+    }
+
+    return {
+        b  : 1, // force multi-line
+        cc : "copy",
+    };
+}
+`
+    },
 ];
 
 runTest({ desc, parser, fixtures });

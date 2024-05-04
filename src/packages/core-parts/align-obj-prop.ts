@@ -87,16 +87,17 @@ export function alignObjectProp(code: string, options: ParserOptions): string {
 const RE_CURLY_BRACE_SEGMENTATION = new RegExp(/(?<=\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)?\n)|(?<=\n)(?=[ \t]*\})/s);
 
 // Test if a segment starts with close brace '}'
-const RE_CLOSE_CURLY_START = new RegExp(/^[ \t]*\}/);
+const RE_START_IS_OPEN_CURLY = new RegExp(/^[ \t]*\}/);
 
 // Test if a segment ends with open brace '{', plus optional '//' or '// ... //'
-const RE_OPEN_CURLY_END = new RegExp(/\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)?\n[ \t\n]*$/);
+const RE_END_IS_OPEN_CURLY = new RegExp(/\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)?\n[ \t\n]*$/);
 
 // Detect if a segment ends with open curly but EOL '//', indicating prettier-ignore
-const RE_CURLY_PRETTIER_IGNORE = new RegExp(/\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)\n[ \t\n]*$/);
+const RE_END_IS_PRETTIER_IGNORE = new RegExp(/\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)\n[ \t\n]*$/);
 
-// Detect open brace from function declaration, e.g. ') {' or '=> {'
-const RE_FUNC_OPEN_BRACE = new RegExp(/[\w\)\>\]](?:\s*\/\/[^\n]*\n)*\s*\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)?\n[ \t\n]*$/);
+// Detect open brace from function declaration, e.g. ') {' or '=> {', and exceptions
+const RE_END_IS_FUNC_OPEN_BRACE = new RegExp(/[\w\)]\s*\{[ \t\n]*$/);
+const RE_END_IS_OBJ_OPEN_BRACE = new RegExp(/\b(?:return|throw)\s*\{[^\n]*[ \t\n]*$/i);
 
 // Indentation count (of spaces)
 function getIndent(line: string) {
@@ -120,6 +121,8 @@ function makeSegment(lines: string) {
     const firstLine = lines.match(/^(?:[ \t]*\n)*([ \t]*\S.*\n)/)[1];
     const lastLine = lines.match(/([ \t]*\S.*\n)(?:[ \t\n]*)$/)[1];
 
+    const linesNoComment = lines.replace(/\s*\/\/[^\n]*(?=\n)/g, '');
+
     // prettier-ignore
     return {
         lines,
@@ -127,13 +130,12 @@ function makeSegment(lines: string) {
         firstLine : { text: firstLine, indent: getIndent(firstLine) },
         lastLine  : { text: lastLine,  indent: getIndent(lastLine) },
 
-        // closeCurlyStart  : !!firstLine.match(/^[ \t]*\}/),
-        // openCurlyEnd     : !!lastLine.match(/\{(?:[ \t]*\/\/(?:[^\n]*\/\/)?)?\n[ \t\n]*$/),
+        startIsCloseCurly  : RE_START_IS_OPEN_CURLY.test(firstLine),
+        endIsOpenCurly     : RE_END_IS_OPEN_CURLY.test(lastLine),
+        endIsIgnore        : RE_END_IS_PRETTIER_IGNORE.test(lastLine),
 
-        closeCurlyStart  : RE_CLOSE_CURLY_START.test(firstLine),
-        openCurlyEnd     : RE_OPEN_CURLY_END.test(lastLine),
-        openCurlyForFunc : !!lastLine.match(RE_FUNC_OPEN_BRACE),
-        beginIgnore      : !!lastLine.match(RE_CURLY_PRETTIER_IGNORE),
+        endIsFuncOpenCurly : RE_END_IS_FUNC_OPEN_BRACE.test(linesNoComment)
+            && !RE_END_IS_OBJ_OPEN_BRACE.test(linesNoComment),
     };
 }
 
@@ -190,20 +192,20 @@ function splitByCurly(code: string): any[] {
 
         // Open '{' followed by close '}' curly line must have same indent
         const openCloseBadIndent =
-            
-            prev.openCurlyEnd && next.closeCurlyStart
+
+            prev.endIsOpenCurly && next.startIsCloseCurly
             && prev.lastLine.indent !== next.firstLine.indent;
 
         // Open curly must lead to greater indent in the next segment
         const openNotIncreaseIndent =
 
-            prev.openCurlyEnd && !next.closeCurlyStart
+            prev.endIsOpenCurly && !next.startIsCloseCurly
             && prev.lastLine.indent >= next.firstLine.indent;
 
         // Close curly must reduce indent from previous segment
         const closeNotReduceIndent =
-            
-            !prev.openCurlyEnd && next.closeCurlyStart
+
+            !prev.endIsOpenCurly && next.startIsCloseCurly
             && prev.lastLine.indent <= next.firstLine.indent;
 
         // Previous segment first line indentation must be less or equal to the last line's indent
@@ -211,7 +213,7 @@ function splitByCurly(code: string): any[] {
 
         const mergeToPrev = openCloseBadIndent || openNotIncreaseIndent || closeNotReduceIndent
             || prevSegInvalidIndent;
-        
+
         if (mergeToPrev) {
             seg[seg.length - 1] = makeSegment(prev.lines + next.lines);
         }
@@ -245,7 +247,7 @@ function alignObjectPropLevel(segs: any[], idx: number[], indent: number) {
     // Skip if function or class declaration
     if (idx[0] > 0) {
         const prevSeg = segs[idx[0] - 1];
-        if (prevSeg.openCurlyForFunc) {
+        if (prevSeg.endIsFuncOpenCurly) {
             return;
         }
     }
@@ -255,7 +257,7 @@ function alignObjectPropLevel(segs: any[], idx: number[], indent: number) {
     const RE_COMMENT = new RegExp(`^[ ]{${indent}}//`);
 
     let change = { count: 0 };
-    
+
     // Re-format object properties for groups of consecutive lines
     const mySegs = idx.map((i) => segs[i]);
     mySegs.forEach((seg) => {
