@@ -18,13 +18,13 @@ A prettier plugin that aligns properties of object literals.
 For Prettier v2:
 
 ```sh
-npm install -D prettier@^2 @yikes2000/prettier-plugin-preserve-line
+npm install -D prettier@^2 @yikes2000/prettier-plugin-align-object-properties
 ```
 
 For Prettier v3:[^1]
 
 ```sh
-npm install -D prettier @yikes2000/prettier-plugin-preserve-line
+npm install -D prettier @yikes2000/prettier-plugin-align-object-properties
 ```
 .
 
